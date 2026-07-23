@@ -1,0 +1,77 @@
+name: "Feature or design request"
+description: "Propose a scoped TFWS capability, interoperability improvement, or engineering change."
+title: "[Proposal]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Protocol-affecting proposals may require an RFC and security review. Engineering-alpha status is not a promise that a proposed capability will be implemented.
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: "Preflight"
+      options:
+        - label: "I searched existing issues and specifications for this proposal."
+          required: true
+        - label: "I reviewed RELEASE-GATES.md and docs/IMPLEMENTATION-STATUS.md."
+          required: true
+        - label: "This request does not disclose a security vulnerability."
+          required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: "Area"
+      options:
+        - "Protocol or specification"
+        - "Cryptography or key lifecycle"
+        - "Transparency or recovery"
+        - "Rust implementation"
+        - "Python reference"
+        - "TypeScript SDK"
+        - "Schemas, registries, or test vectors"
+        - "Build, CI, release, or supply chain"
+        - "Documentation or accessibility"
+        - "Other"
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: "Problem"
+      description: "Describe the concrete user, interoperability, security, or engineering problem."
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: "Proposed outcome"
+      description: "Describe observable behavior and acceptance criteria, not only an implementation idea."
+    validations:
+      required: true
+
+  - type: textarea
+    id: security
+    attributes:
+      label: "Security and trust-boundary impact"
+      description: "Describe new inputs, keys, permissions, network access, downgrade paths, or failure modes."
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: "Alternatives considered"
+    validations:
+      required: false
+
+  - type: textarea
+    id: references
+    attributes:
+      label: "Standards or interoperability references"
+      description: "Link relevant primary specifications, test vectors, or prior discussions."
+    validations:
+      required: false

@@ -1,0 +1,84 @@
+name: "Bug report"
+description: "Report a reproducible defect in the TFWS engineering alpha."
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not submit security vulnerabilities here. Use the private process in SECURITY.md.
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: "Preflight"
+      options:
+        - label: "I searched existing issues for the same problem."
+          required: true
+        - label: "This report does not contain a suspected security vulnerability, secret, private key, or personal data."
+          required: true
+        - label: "I reviewed docs/IMPLEMENTATION-STATUS.md and the capability is described as implemented."
+          required: true
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: "Component"
+      options:
+        - "Rust core or CLI"
+        - "OpenSSL provider adapter"
+        - "WASM interface"
+        - "Python reference"
+        - "TypeScript SDK"
+        - "Specification, schema, or registry"
+        - "Test vectors or formal models"
+        - "CI, build, or documentation"
+        - "Other"
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: "Version or commit"
+      description: "Provide the exact version, tag, or commit SHA."
+      placeholder: "3.0.0-alpha.1 or full commit SHA"
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: "Environment"
+      description: "Operating system, toolchain versions, OpenSSL version, and relevant commands."
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: "Reproduction steps"
+      description: "Provide the smallest safe sequence that reproduces the problem."
+    validations:
+      required: true
+
+  - type: textarea
+    id: current
+    attributes:
+      label: "Current behavior"
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: "Expected behavior"
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: "Safe logs or additional context"
+      description: "Remove credentials, private keys, personal data, and unrelated logs."
+    validations:
+      required: false

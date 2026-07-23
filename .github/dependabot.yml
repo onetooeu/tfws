@@ -1,0 +1,37 @@
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "05:00"
+      timezone: "Europe/Bratislava"
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: "cargo"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "tuesday"
+      time: "05:00"
+      timezone: "Europe/Bratislava"
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "wednesday"
+      time: "05:00"
+      timezone: "Europe/Bratislava"
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: "npm"
+    directory: "/sdks/typescript"
+    schedule:
+      interval: "weekly"
+      day: "thursday"
+      time: "05:00"
+      timezone: "Europe/Bratislava"
+    open-pull-requests-limit: 5

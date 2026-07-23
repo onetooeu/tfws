@@ -1,0 +1,15 @@
+# Default owner for the repository.
+* @onetooeu
+
+# Security-sensitive and governance areas.
+.github/ @onetooeu
+spec/ @onetooeu
+schemas/ @onetooeu
+registries/ @onetooeu
+crates/ @onetooeu
+reference/ @onetooeu
+sdks/ @onetooeu
+formal/ @onetooeu
+test-vectors/ @onetooeu
+SECURITY.md @onetooeu
+RELEASE-GATES.md @onetooeu

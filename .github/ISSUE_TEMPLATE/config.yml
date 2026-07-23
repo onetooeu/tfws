@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: "Report a security vulnerability"
+    url: "https://github.com/onetooeu/tfws/security/policy"
+    about: "Use the private reporting process. Do not disclose vulnerabilities in a public issue."
