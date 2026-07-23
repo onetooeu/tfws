@@ -8,8 +8,11 @@ alpha builds.
 
 ## [Unreleased]
 
+## [3.0.0-alpha.1] - 2026-07-23
+
 ### Added
 
+- Published the signed, source-only GitHub prerelease `v3.0.0-alpha.1`.
 - Initial public TFWS 3.0 engineering-alpha source tree.
 - Rust workspace for the core, CLI, OpenSSL provider adapter, and WASM interface.
 - Python reference implementation and TypeScript SDK helpers.
@@ -26,4 +29,7 @@ alpha builds.
   newer.
 - Production use remains blocked by the gates in `RELEASE-GATES.md`.
 
-No production release has been made from this repository.
+No stable or production release has been made from this repository.
+
+[Unreleased]: https://github.com/onetooeu/tfws/compare/v3.0.0-alpha.1...HEAD
+[3.0.0-alpha.1]: https://github.com/onetooeu/tfws/releases/tag/v3.0.0-alpha.1

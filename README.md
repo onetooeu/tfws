@@ -10,6 +10,10 @@ rules, recovery policy, transparency evidence and offline verification.
 > be represented as supported. Review `RELEASE-GATES.md` and
 > `docs/IMPLEMENTATION-STATUS.md` before deployment.
 
+The current public engineering-alpha prerelease is
+[`v3.0.0-alpha.1`](https://github.com/onetooeu/tfws/releases/tag/v3.0.0-alpha.1).
+It is source-only and remains subject to the release gates above.
+
 ## Local validation
 
 ```bash
