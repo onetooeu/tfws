@@ -10,10 +10,44 @@ concurrency:
   cancel-in-progress: true
 jobs:
   python-node:
-    runs-on: ubuntu-latest
+    # Ubuntu 26.04 is currently the official GitHub-hosted image that provides
+    # OpenSSL 3.5+, required for ML-DSA-65 in the TFWS hybrid-signature tests.
+    runs-on: ubuntu-26.04
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - run: openssl version
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+      - name: Verify OpenSSL requirements
+        run: |
+          openssl version
+          python3 - <<'PY'
+          import re
+          import subprocess
+
+          version_text = subprocess.check_output(
+              ["openssl", "version"], text=True
+          ).strip()
+          match = re.match(r"OpenSSL\s+(\d+)\.(\d+)\.(\d+)", version_text)
+          if not match:
+              raise SystemExit(f"Cannot parse OpenSSL version: {version_text}")
+
+          version = tuple(map(int, match.groups()))
+          if version < (3, 5, 0):
+              raise SystemExit(
+                  f"OpenSSL 3.5+ required, found {version_text}"
+              )
+
+          algorithms = subprocess.check_output(
+              ["openssl", "list", "-signature-algorithms"], text=True
+          )
+          for required in ("ED25519", "ML-DSA-65"):
+              if required.lower() not in algorithms.lower():
+                  raise SystemExit(
+                      f"Required signature algorithm missing: {required}"
+                  )
+
+          print("OpenSSL version and signature algorithms: PASS")
+          PY
       - run: python3 -m pip install --disable-pip-version-check .[test]
       - run: PYTHONPATH=reference/python python3 -m unittest discover -s reference/python/tests -v
       - run: node --test sdks/typescript/test/*.test.mjs
@@ -25,7 +59,9 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
       - run: rustc --version
       - run: cargo --version
       - run: rustup target add wasm32-unknown-unknown
