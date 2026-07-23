@@ -1,0 +1,110 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tfws.org/schema/3.0/signature-bundle.json",
+  "title": "TFWS 3.0 Signature Bundle",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "bundle_version",
+    "subject",
+    "payload_sha512",
+    "created",
+    "key_epoch",
+    "policy_id",
+    "signatures"
+  ],
+  "properties": {
+    "bundle_version": {
+      "const": "1"
+    },
+    "subject": {
+      "type": "string"
+    },
+    "payload_sha512": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{128}$"
+    },
+    "created": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "key_epoch": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "policy_id": {
+      "const": "tfws.hybrid.baseline.v1"
+    },
+    "signatures": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "algorithm",
+          "key_id",
+          "public_key_uri",
+          "value"
+        ],
+        "properties": {
+          "algorithm": {
+            "enum": [
+              "ed25519",
+              "ml-dsa-65"
+            ]
+          },
+          "key_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "public_key_uri": {
+            "type": "string",
+            "enum": [
+              "/.well-known/keys/ed25519.pem",
+              "/.well-known/keys/ml-dsa-65.pem"
+            ]
+          },
+          "value": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9+/]+={0,2}$",
+            "minLength": 40
+          }
+        }
+      },
+      "allOf": [
+        {
+          "contains": {
+            "type": "object",
+            "properties": {
+              "algorithm": {
+                "const": "ed25519"
+              }
+            },
+            "required": [
+              "algorithm"
+            ]
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "type": "object",
+            "properties": {
+              "algorithm": {
+                "const": "ml-dsa-65"
+              }
+            },
+            "required": [
+              "algorithm"
+            ]
+          },
+          "minContains": 1,
+          "maxContains": 1
+        }
+      ]
+    }
+  }
+}

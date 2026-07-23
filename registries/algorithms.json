@@ -1,0 +1,50 @@
+{
+  "registry_version": "1",
+  "updated_at": "2026-07-21T00:00:00Z",
+  "profiles": [
+{
+  "id": "tfws.hybrid.baseline.v1",
+  "status": "active",
+  "minimum_security_level": 3,
+  "required": [
+    "ed25519",
+    "ml-dsa-65"
+  ],
+  "downgrade_allowed": false
+},
+{
+  "id": "tfws.archive.high-assurance.v1",
+  "status": "experimental",
+  "minimum_security_level": 3,
+  "required": [
+    "ed25519",
+    "ml-dsa-65"
+  ],
+  "additional": [
+    "slh-dsa-shake-192s"
+  ]
+}
+  ],
+  "algorithms": [
+{
+  "id": "ed25519",
+  "status": "active",
+  "purpose": "classical signature"
+},
+{
+  "id": "ml-dsa-65",
+  "status": "active",
+  "purpose": "post-quantum signature"
+},
+{
+  "id": "slh-dsa-shake-192s",
+  "status": "experimental",
+  "purpose": "long-term archive signature"
+},
+{
+  "id": "ml-kem-768",
+  "status": "experimental",
+  "purpose": "post-quantum key establishment"
+}
+  ]
+}

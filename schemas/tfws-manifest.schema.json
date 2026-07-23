@@ -1,0 +1,259 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tfws.org/schema/3.0/manifest.json",
+  "title": "TFWS 3.0 Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "tfws_version",
+    "subject",
+    "environment",
+    "operator",
+    "key_epoch",
+    "keys",
+    "signature_policy",
+    "capabilities",
+    "artifacts",
+    "updated_at"
+  ],
+  "properties": {
+    "tfws_version": {
+      "const": "3.0"
+    },
+    "subject": {
+      "type": "string",
+      "pattern": "^https://[^/]+$"
+    },
+    "environment": {
+      "enum": [
+        "development",
+        "staging",
+        "production"
+      ]
+    },
+    "operator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "jurisdiction": {
+          "type": "string",
+          "pattern": "^[A-Z]{2}$"
+        }
+      }
+    },
+    "key_epoch": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "signature_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "policy_id",
+        "required_algorithms"
+      ],
+      "properties": {
+        "policy_id": {
+          "const": "tfws.hybrid.baseline.v1"
+        },
+        "required_algorithms": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "const": "ed25519"
+            },
+            {
+              "const": "ml-dsa-65"
+            }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        }
+      }
+    },
+    "capabilities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "required",
+        "optional"
+      ],
+      "properties": {
+        "required": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9.-]+\\.v[1-9][0-9]*$"
+          },
+          "uniqueItems": true
+        },
+        "optional": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9.-]+\\.v[1-9][0-9]*$"
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "identity": {
+      "type": "object"
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "uri",
+          "media_type",
+          "sha512"
+        ],
+        "properties": {
+          "uri": {
+            "type": "string"
+          },
+          "media_type": {
+            "type": "string"
+          },
+          "sha512": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{128}$"
+          }
+        }
+      }
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "keys": {
+      "type": "array",
+      "maxItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "algorithm",
+          "key_id",
+          "public_key_uri",
+          "public_key_sha256",
+          "status",
+          "usage"
+        ],
+        "properties": {
+          "algorithm": {
+            "enum": [
+              "ed25519",
+              "ml-dsa-65"
+            ]
+          },
+          "key_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "public_key_uri": {
+            "enum": [
+              "/.well-known/keys/ed25519.pem",
+              "/.well-known/keys/ml-dsa-65.pem"
+            ]
+          },
+          "public_key_sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "status": {
+            "const": "active"
+          },
+          "usage": {
+            "type": "array",
+            "prefixItems": [
+              {
+                "const": "release"
+              }
+            ],
+            "items": false
+          }
+        }
+      },
+      "oneOf": [
+        {
+          "maxItems": 0
+        },
+        {
+          "minItems": 2,
+          "maxItems": 2,
+          "allOf": [
+            {
+              "contains": {
+                "type": "object",
+                "properties": {
+                  "algorithm": {
+                    "const": "ed25519"
+                  }
+                },
+                "required": [
+                  "algorithm"
+                ]
+              },
+              "minContains": 1,
+              "maxContains": 1
+            },
+            {
+              "contains": {
+                "type": "object",
+                "properties": {
+                  "algorithm": {
+                    "const": "ml-dsa-65"
+                  }
+                },
+                "required": [
+                  "algorithm"
+                ]
+              },
+              "minContains": 1,
+              "maxContains": 1
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "environment": {
+            "enum": [
+              "staging",
+              "production"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "keys": {
+            "minItems": 2,
+            "maxItems": 2
+          }
+        }
+      }
+    }
+  ]
+}

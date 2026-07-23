@@ -1,0 +1,37 @@
+{
+  "registry_version": "1",
+  "capabilities": [
+{
+  "id": "core.v1",
+  "status": "required"
+},
+{
+  "id": "identity.v1",
+  "status": "active"
+},
+{
+  "id": "transparency.v1",
+  "status": "active"
+},
+{
+  "id": "recovery.v1",
+  "status": "active"
+},
+{
+  "id": "secure-transport.v1",
+  "status": "experimental"
+},
+{
+  "id": "agent-protocol.v1",
+  "status": "experimental"
+},
+{
+  "id": "registry.v1",
+  "status": "experimental"
+},
+{
+  "id": "search.v1",
+  "status": "experimental"
+}
+  ]
+}

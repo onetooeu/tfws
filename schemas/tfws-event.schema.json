@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tfws.org/schema/3.0/event.json",
+  "title": "TFWS 3.0 Event",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+"event_id",
+"sequence",
+"event_type",
+"subject",
+"occurred_at",
+"previous_event_hash",
+"details_commitment",
+"payload"
+  ],
+  "properties": {
+"event_id": {
+  "type": "string"
+},
+"sequence": {
+  "type": "integer",
+  "minimum": 0
+},
+"event_type": {
+  "type": "string"
+},
+"subject": {
+  "type": "string"
+},
+"occurred_at": {
+  "type": "string",
+  "format": "date-time"
+},
+"previous_event_hash": {
+  "type": [
+    "string",
+    "null"
+  ]
+},
+"details_commitment": {
+  "type": "string",
+  "pattern": "^[a-f0-9]{64}$"
+},
+"payload": {
+  "type": "object"
+}
+  }
+}

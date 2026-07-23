@@ -1,0 +1,50 @@
+{
+  "tfws_version": "3.0",
+  "subject": "https://example.com",
+  "environment": "production",
+  "operator": {
+    "name": "Example Organization"
+  },
+  "key_epoch": 1,
+  "keys": [
+    {
+      "algorithm": "ed25519",
+      "key_id": "release-1",
+      "public_key_uri": "/.well-known/keys/ed25519.pem",
+      "public_key_sha256": "7fe64728f1a7bb8c6c103f49c0e2ed0e999678229256c7aab813634cc6c85ba9",
+      "status": "active",
+      "usage": [
+        "release"
+      ]
+    },
+    {
+      "algorithm": "ml-dsa-65",
+      "key_id": "release-1",
+      "public_key_uri": "/.well-known/keys/ml-dsa-65.pem",
+      "public_key_sha256": "85acf51bf7260bc7009f1b3d6b8a4f6d0442bf21ea91a86fe7cbb282edb317cb",
+      "status": "active",
+      "usage": [
+        "release"
+      ]
+    }
+  ],
+  "signature_policy": {
+    "policy_id": "tfws.hybrid.baseline.v1",
+    "required_algorithms": [
+      "ed25519",
+      "ml-dsa-65"
+    ]
+  },
+  "capabilities": {
+    "required": [
+      "core.v1",
+      "identity.v1",
+      "transparency.v1",
+      "recovery.v1"
+    ],
+    "optional": []
+  },
+  "artifacts": [],
+  "updated_at": "2026-07-21T00:00:00Z",
+  "expires_at": "2027-07-21T00:00:00Z"
+}

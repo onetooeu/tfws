@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tfws3-reference"
+version = "3.0.0a1"
+description = "Fail-closed TFWS 3.0 reference and bootstrap CLI"
+requires-python = ">=3.11"
+license = { text = "Apache-2.0" }
+
+[project.optional-dependencies]
+test = ["jsonschema>=4.22,<5"]
+
+[project.scripts]
+tfws = "tfws3.cli:main"
+
+[tool.setuptools]
+package-dir = { "" = "reference/python" }
+
+[tool.setuptools.packages.find]
+include = ["tfws3*"]
+exclude = ["tests*"]
+where = ["reference/python"]
