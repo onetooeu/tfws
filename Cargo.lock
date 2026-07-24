@@ -543,6 +543,9 @@ dependencies = [
 name = "tfws-openssl-provider"
 version = "3.0.0-alpha.1"
 dependencies = [
+ "serde_json",
+ "sha2",
+ "tfws-core",
  "thiserror",
 ]
 

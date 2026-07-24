@@ -1,10 +1,18 @@
 #![forbid(unsafe_code)]
 
 pub mod cbor;
+pub mod cose;
 
 pub use cbor::{
     decode_manifest_cbor, encode_manifest_cbor, encode_manifest_cbor_with_limits, CborCodecError,
     CborLimits,
+};
+pub use cose::{
+    sign_manifest_cose, sign_manifest_cose_with_limits, verify_manifest_cose,
+    verify_manifest_cose_with_limits, CoseAlgorithm, CoseCryptoError, CoseEnvelopeError,
+    CoseLimits, CoseSigner, CoseVerifier, COSE_CONTENT_TYPE, COSE_SIGN_TAG, COSE_TYPE,
+    ED25519_COSE_ALGORITHM, ED25519_SIGNATURE_BYTES, ML_DSA_65_COSE_ALGORITHM,
+    ML_DSA_65_SIGNATURE_BYTES,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha512};
