@@ -23,8 +23,11 @@ gate has completed.
 
 The canonical JSON manifest is served from `/.well-known/tfws.json`. Its JSON
 signature bundle is served from `/.well-known/tfws.sig.json`. Public release
-keys are served from `/.well-known/keys/`. Optional compact encodings use CBOR
-and COSE, but they must represent the same signed payload and security policy.
+keys are served from `/.well-known/keys/`.
+
+The compact CBOR/COSE representation is specified in
+[`CBOR-COSE.md`](CBOR-COSE.md). It must represent the same abstract manifest,
+signed payload and security policy as the canonical JSON path.
 
 ## Canonical payload
 

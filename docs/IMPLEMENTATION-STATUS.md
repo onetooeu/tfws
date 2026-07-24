@@ -23,7 +23,8 @@
 ## Specified or scaffolded, not production-complete
 
 - independent multi-platform verification and security audit of the Rust/WASM verifier,
-- CBOR/COSE envelope implementation,
+- CBOR/COSE envelope profile specified; codec, signing, verification and
+  conformance vectors not implemented,
 - ML-KEM secure transport implementation,
 - distributed transparency log, consistency proofs and witness gossip service,
 - selective-disclosure credential integrations,
