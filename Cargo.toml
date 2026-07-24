@@ -14,6 +14,7 @@ license = "Apache-2.0"
 rust-version = "1.86"
 
 [workspace.dependencies]
+minicbor = { version = "=2.2.2", default-features = false, features = ["alloc"] }
 base64 = "0.22"
 chrono = { version = "0.4", default-features = false, features = ["clock", "serde"] }
 serde = { version = "1", features = ["derive"] }

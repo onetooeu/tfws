@@ -1,5 +1,11 @@
 #![forbid(unsafe_code)]
 
+pub mod cbor;
+
+pub use cbor::{
+    decode_manifest_cbor, encode_manifest_cbor, encode_manifest_cbor_with_limits, CborCodecError,
+    CborLimits,
+};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha512};
 use std::collections::BTreeSet;
