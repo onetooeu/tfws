@@ -55,15 +55,87 @@ jobs:
       - run: node --test sdks/typescript/test/*.test.mjs
       - run: python3 scripts/validate_repository.py
   rust:
+    name: rust (${{ matrix.label }})
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
+        include:
+          - label: ubuntu-latest
+            runner: ubuntu-26.04
+          - label: windows-latest
+            runner: windows-latest
+          - label: macos-latest
+            runner: macos-latest
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           persist-credentials: false
+      - name: Select OpenSSL 3.5+ on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $openssl = "C:\msys64\ucrt64\bin\openssl.exe"
+
+          if (-not (Test-Path -LiteralPath $openssl -PathType Leaf)) {
+            throw "Required MSYS2 OpenSSL was not found at $openssl"
+          }
+
+          "TFWS_OPENSSL=$openssl" |
+            Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          (Split-Path -Parent $openssl) |
+            Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+      - name: Select OpenSSL 3.5+ on Unix
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+          openssl_path="$(command -v openssl)"
+          echo "TFWS_OPENSSL=${openssl_path}" >> "${GITHUB_ENV}"
+      - name: Verify Rust OpenSSL requirements
+        shell: pwsh
+        run: |
+          $openssl = $env:TFWS_OPENSSL
+
+          if ([string]::IsNullOrWhiteSpace($openssl) -or
+              -not (Test-Path -LiteralPath $openssl -PathType Leaf)) {
+            throw "TFWS_OPENSSL is missing or invalid: $openssl"
+          }
+
+          $versionText = (& $openssl version).Trim()
+
+          if ($LASTEXITCODE -ne 0 -or
+              $versionText -notmatch '^OpenSSL\s+(\d+)\.(\d+)\.(\d+)') {
+            throw "Cannot parse OpenSSL version: $versionText"
+          }
+
+          $version = [Version]::new(
+            [int]$Matches[1],
+            [int]$Matches[2],
+            [int]$Matches[3]
+          )
+
+          if ($version -lt [Version]"3.5.0") {
+            throw "OpenSSL 3.5+ required, found $versionText"
+          }
+
+          $algorithms = (& $openssl list -signature-algorithms) -join "`n"
+
+          if ($LASTEXITCODE -ne 0) {
+            throw "OpenSSL signature algorithm listing failed"
+          }
+
+          foreach ($required in @("ED25519", "ML-DSA-65")) {
+            if ($algorithms.IndexOf(
+                    $required,
+                    [System.StringComparison]::OrdinalIgnoreCase
+                ) -lt 0) {
+              throw "Required signature algorithm missing: $required"
+            }
+          }
+
+          Write-Host $versionText
+          Write-Host "OpenSSL version and signature algorithms: PASS"
       - run: rustc --version
       - run: cargo --version
       - run: rustup target add wasm32-unknown-unknown
