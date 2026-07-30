@@ -150,6 +150,200 @@ jobs:
 
           Write-Host $versionText
           Write-Host "OpenSSL version and signature algorithms: PASS"
+      - name: Verify Windows OpenSSL signing operations
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $openssl = $env:TFWS_OPENSSL
+
+          if ([string]::IsNullOrWhiteSpace($openssl) -or
+              -not (Test-Path -LiteralPath $openssl -PathType Leaf)) {
+            throw "TFWS_OPENSSL is missing or invalid: $openssl"
+          }
+
+          $probeRoot = Join-Path $env:RUNNER_TEMP (
+            "tfws-openssl-signing-probe-{0}-{1}" -f
+              $env:GITHUB_RUN_ID,
+              $env:GITHUB_RUN_ATTEMPT
+          )
+          $messagePath = Join-Path $probeRoot "message.bin"
+
+          function Invoke-OpenSslProbe {
+            param(
+              [Parameter(Mandatory = $true)]
+              [string]$Label,
+
+              [Parameter(Mandatory = $true)]
+              [string[]]$Arguments
+            )
+
+            Write-Host "::group::$Label"
+            $previousPreference = $ErrorActionPreference
+
+            try {
+              $ErrorActionPreference = "Continue"
+              $output = @(& $openssl @Arguments 2>&1)
+              $exitCode = $LASTEXITCODE
+            }
+            finally {
+              $ErrorActionPreference = $previousPreference
+            }
+
+            foreach ($line in $output) {
+              Write-Host ([string]$line)
+            }
+
+            Write-Host "Exit code: $exitCode"
+            Write-Host "::endgroup::"
+
+            if ($exitCode -ne 0) {
+              throw "$Label failed with exit code $exitCode"
+            }
+          }
+
+          if (Test-Path -LiteralPath $probeRoot) {
+            Remove-Item -LiteralPath $probeRoot -Recurse -Force
+          }
+
+          New-Item -ItemType Directory -Path $probeRoot -Force |
+            Out-Null
+
+          try {
+            [System.IO.File]::WriteAllBytes(
+              $messagePath,
+              [System.Text.Encoding]::UTF8.GetBytes(
+                "TFWS Windows OpenSSL signing probe"
+              )
+            )
+
+            $identity = (& whoami).Trim()
+
+            if ($LASTEXITCODE -ne 0 -or
+                [string]::IsNullOrWhiteSpace($identity)) {
+              throw "Cannot resolve the Windows runner identity"
+            }
+
+            $grant = "${identity}:(OI)(CI)F"
+            $aclOutput = @(
+              & icacls.exe $probeRoot `
+                /inheritance:r `
+                /grant:r `
+                $grant `
+                2>&1
+            )
+            $aclExitCode = $LASTEXITCODE
+
+            foreach ($line in $aclOutput) {
+              Write-Host ([string]$line)
+            }
+
+            if ($aclExitCode -ne 0) {
+              throw "Windows signing-probe ACL setup failed"
+            }
+
+            $profiles = @(
+              @{
+                Label = "ED25519"
+                OpenSslName = "ED25519"
+                Prefix = "ed25519"
+                ExpectedSignatureLength = 64
+              },
+              @{
+                Label = "ML-DSA-65"
+                OpenSslName = "ML-DSA-65"
+                Prefix = "ml-dsa-65"
+                ExpectedSignatureLength = 3309
+              }
+            )
+
+            foreach ($profile in $profiles) {
+              $privateKey = Join-Path $probeRoot (
+                "{0}-private.pem" -f $profile.Prefix
+              )
+              $publicKey = Join-Path $probeRoot (
+                "{0}-public.pem" -f $profile.Prefix
+              )
+              $signature = Join-Path $probeRoot (
+                "{0}-signature.bin" -f $profile.Prefix
+              )
+
+              Invoke-OpenSslProbe `
+                -Label "$($profile.Label) key generation" `
+                -Arguments @(
+                  "genpkey",
+                  "-algorithm",
+                  $profile.OpenSslName,
+                  "-out",
+                  $privateKey
+                )
+
+              Invoke-OpenSslProbe `
+                -Label "$($profile.Label) public-key derivation" `
+                -Arguments @(
+                  "pkey",
+                  "-in",
+                  $privateKey,
+                  "-pubout",
+                  "-out",
+                  $publicKey
+                )
+
+              Invoke-OpenSslProbe `
+                -Label "$($profile.Label) signing" `
+                -Arguments @(
+                  "pkeyutl",
+                  "-sign",
+                  "-inkey",
+                  $privateKey,
+                  "-rawin",
+                  "-in",
+                  $messagePath,
+                  "-out",
+                  $signature
+                )
+
+              Invoke-OpenSslProbe `
+                -Label "$($profile.Label) verification" `
+                -Arguments @(
+                  "pkeyutl",
+                  "-verify",
+                  "-pubin",
+                  "-inkey",
+                  $publicKey,
+                  "-rawin",
+                  "-in",
+                  $messagePath,
+                  "-sigfile",
+                  $signature
+                )
+
+              $signatureLength = (
+                Get-Item -LiteralPath $signature
+              ).Length
+
+              if ($signatureLength -ne
+                  [int64]$profile.ExpectedSignatureLength) {
+                throw (
+                  "{0} signature length mismatch: actual={1}; expected={2}" -f
+                    $profile.Label,
+                    $signatureLength,
+                    $profile.ExpectedSignatureLength
+                )
+              }
+
+              Write-Host (
+                "{0} functional signing probe: PASS / {1} bytes" -f
+                  $profile.Label,
+                  $signatureLength
+              )
+            }
+          }
+          finally {
+            if (Test-Path -LiteralPath $probeRoot) {
+              Remove-Item -LiteralPath $probeRoot -Recurse -Force
+            }
+          }
       - run: rustc --version
       - run: cargo --version
       - run: rustup target add wasm32-unknown-unknown
