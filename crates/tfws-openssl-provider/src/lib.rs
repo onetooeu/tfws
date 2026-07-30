@@ -4,15 +4,22 @@ use sha2::{Digest, Sha256};
 use std::{
     env, fs, io,
     path::{Path, PathBuf},
-    process::Command,
+    process::{Command, Output},
     sync::atomic::{AtomicU64, Ordering},
     time::{SystemTime, UNIX_EPOCH},
 };
 use tfws_core::{CoseAlgorithm, CoseCryptoError, CoseSigner, CoseVerifier, KeyDescriptor};
 use thiserror::Error;
 
+#[cfg(windows)]
+use std::{
+    ffi::OsString,
+    os::windows::ffi::{OsStrExt, OsStringExt},
+};
+
 static SCRATCH_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 const MAX_KEY_ID_BYTES: usize = 128;
+const MAX_OPENSSL_DIAGNOSTIC_CHARS: usize = 1024;
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -25,13 +32,16 @@ pub enum Error {
 pub fn verify(public_key: &Path, message: &Path, signature: &Path) -> Result<(), Error> {
     require_no_private_key(public_key)?;
 
+    let public_key = external_command_path(public_key);
+    let message = external_command_path(message);
+    let signature = external_command_path(signature);
     let output = Command::new("openssl")
         .args(["pkeyutl", "-verify", "-pubin", "-inkey"])
-        .arg(public_key)
+        .arg(&public_key)
         .args(["-rawin", "-in"])
-        .arg(message)
+        .arg(&message)
         .arg("-sigfile")
-        .arg(signature)
+        .arg(&signature)
         .output()?;
 
     if output.status.success() {
@@ -176,19 +186,25 @@ impl OpenSslProvider {
         fs::write(&message_path, message).map_err(operation_error)?;
         fs::write(&public_key_path, public_key_bytes).map_err(operation_error)?;
 
+        let private_key_argument = external_command_path(private_key);
+        let message_argument = external_command_path(&message_path);
+        let signature_argument = external_command_path(&signature_path);
+        let public_key_argument = external_command_path(&public_key_path);
         let output = Command::new(&self.openssl)
             .args(["pkeyutl", "-sign", "-inkey"])
-            .arg(private_key)
+            .arg(&private_key_argument)
             .args(["-rawin", "-in"])
-            .arg(&message_path)
+            .arg(&message_argument)
             .arg("-out")
-            .arg(&signature_path)
+            .arg(&signature_argument)
             .output()
             .map_err(operation_error)?;
 
         if !output.status.success() {
-            return Err(CoseCryptoError::OperationFailed(
-                "OpenSSL signing failed".into(),
+            return Err(openssl_operation_error(
+                "signing",
+                &output,
+                &[private_key, scratch.path()],
             ));
         }
 
@@ -200,15 +216,19 @@ impl OpenSslProvider {
 
         let verification = Command::new(&self.openssl)
             .args(["pkeyutl", "-verify", "-pubin", "-inkey"])
-            .arg(&public_key_path)
+            .arg(&public_key_argument)
             .args(["-rawin", "-in"])
-            .arg(&message_path)
+            .arg(&message_argument)
             .arg("-sigfile")
-            .arg(&signature_path)
+            .arg(&signature_argument)
             .output()
             .map_err(operation_error)?;
 
         if !verification.status.success() {
+            // A failed post-sign verification is a cryptographic key-binding
+            // failure, matching the verifier contract. Process-launch errors
+            // are still mapped above as operational failures, and native
+            // diagnostics remain available for actual signing failures.
             return Err(CoseCryptoError::SignatureInvalid);
         }
 
@@ -235,13 +255,16 @@ impl OpenSslProvider {
         fs::write(&signature_path, signature).map_err(operation_error)?;
         fs::write(&public_key_path, public_key_bytes).map_err(operation_error)?;
 
+        let public_key_argument = external_command_path(&public_key_path);
+        let message_argument = external_command_path(&message_path);
+        let signature_argument = external_command_path(&signature_path);
         let output = Command::new(&self.openssl)
             .args(["pkeyutl", "-verify", "-pubin", "-inkey"])
-            .arg(&public_key_path)
+            .arg(&public_key_argument)
             .args(["-rawin", "-in"])
-            .arg(&message_path)
+            .arg(&message_argument)
             .arg("-sigfile")
-            .arg(&signature_path)
+            .arg(&signature_argument)
             .output()
             .map_err(operation_error)?;
 
@@ -381,6 +404,85 @@ fn set_private_directory_permissions(_path: &Path) -> io::Result<()> {
     ))
 }
 
+#[cfg(windows)]
+fn external_command_path(path: &Path) -> PathBuf {
+    let encoded = path.as_os_str().encode_wide().collect::<Vec<_>>();
+    const VERBATIM_PREFIX: &[u16] = &[b'\\' as u16, b'\\' as u16, b'?' as u16, b'\\' as u16];
+    const UNC_PREFIX: &[u16] = &[b'U' as u16, b'N' as u16, b'C' as u16, b'\\' as u16];
+
+    if !encoded.starts_with(VERBATIM_PREFIX) {
+        return path.to_path_buf();
+    }
+
+    let remainder = &encoded[VERBATIM_PREFIX.len()..];
+
+    if remainder.starts_with(UNC_PREFIX) {
+        let mut normalized = vec![b'\\' as u16, b'\\' as u16];
+        normalized.extend_from_slice(&remainder[UNC_PREFIX.len()..]);
+        PathBuf::from(OsString::from_wide(&normalized))
+    } else {
+        PathBuf::from(OsString::from_wide(remainder))
+    }
+}
+
+#[cfg(not(windows))]
+fn external_command_path(path: &Path) -> PathBuf {
+    path.to_path_buf()
+}
+
+fn openssl_operation_error(
+    operation: &str,
+    output: &Output,
+    redacted_paths: &[&Path],
+) -> CoseCryptoError {
+    let status = output.status.code().map_or_else(
+        || "terminated without an exit code".to_owned(),
+        |code| format!("exit code {code}"),
+    );
+    let diagnostic_source = if output.stderr.is_empty() {
+        output.stdout.as_slice()
+    } else {
+        output.stderr.as_slice()
+    };
+    let diagnostic = sanitize_openssl_diagnostic(diagnostic_source, redacted_paths);
+    let message = if diagnostic.is_empty() {
+        format!("OpenSSL {operation} failed ({status})")
+    } else {
+        format!("OpenSSL {operation} failed ({status}): {diagnostic}")
+    };
+
+    CoseCryptoError::OperationFailed(message)
+}
+
+fn sanitize_openssl_diagnostic(bytes: &[u8], redacted_paths: &[&Path]) -> String {
+    let mut diagnostic = String::from_utf8_lossy(bytes)
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ");
+
+    for path in redacted_paths {
+        for candidate in [path.to_path_buf(), external_command_path(path)] {
+            let candidate = candidate.to_string_lossy();
+
+            if !candidate.is_empty() {
+                diagnostic = diagnostic.replace(candidate.as_ref(), "<path>");
+            }
+        }
+    }
+
+    let mut characters = diagnostic.chars();
+    let mut bounded = characters
+        .by_ref()
+        .take(MAX_OPENSSL_DIAGNOSTIC_CHARS)
+        .collect::<String>();
+
+    if characters.next().is_some() {
+        bounded.push('…');
+    }
+
+    bounded
+}
+
 fn resolve_key_path(
     root: &Path,
     algorithm: CoseAlgorithm,
@@ -433,4 +535,42 @@ fn operation_error(_error: io::Error) -> CoseCryptoError {
 
 fn lower_hex(bytes: &[u8]) -> String {
     bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn diagnostic_is_bounded_and_redacts_paths() {
+        let private_key = Path::new(r"C:\sensitive\release-key.pem");
+        let input = format!(
+            "cannot open C:\\sensitive\\release-key.pem\n{}",
+            "x".repeat(MAX_OPENSSL_DIAGNOSTIC_CHARS + 32)
+        );
+        let diagnostic = sanitize_openssl_diagnostic(input.as_bytes(), &[private_key]);
+
+        assert!(diagnostic.contains("<path>"));
+        assert!(!diagnostic.contains("release-key.pem"));
+        assert!(diagnostic.ends_with('…'));
+        assert!(diagnostic.chars().count() <= MAX_OPENSSL_DIAGNOSTIC_CHARS + 1);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn external_command_path_removes_verbatim_drive_prefix() {
+        assert_eq!(
+            external_command_path(Path::new(r"\\?\C:\temp\key.pem")),
+            PathBuf::from(r"C:\temp\key.pem")
+        );
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn external_command_path_normalizes_verbatim_unc_prefix() {
+        assert_eq!(
+            external_command_path(Path::new(r"\\?\UNC\server\share\key.pem")),
+            PathBuf::from(r"\\server\share\key.pem")
+        );
+    }
 }
