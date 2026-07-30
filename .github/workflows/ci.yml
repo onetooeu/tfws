@@ -75,10 +75,24 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $openssl = "C:\msys64\ucrt64\bin\openssl.exe"
+          $candidates = @(
+            (Join-Path -Path $env:ProgramFiles -ChildPath "OpenSSL\bin\openssl.exe")
+            "C:\msys64\ucrt64\bin\openssl.exe"
+          )
+          $openssl = $null
 
-          if (-not (Test-Path -LiteralPath $openssl -PathType Leaf)) {
-            throw "Required MSYS2 OpenSSL was not found at $openssl"
+          foreach ($candidate in $candidates) {
+            if (Test-Path -LiteralPath $candidate -PathType Leaf) {
+              $openssl = $candidate
+              break
+            }
+          }
+
+          if ([string]::IsNullOrWhiteSpace($openssl)) {
+            throw (
+              "Required OpenSSL executable was not found in approved locations: {0}" -f
+                ($candidates -join ", ")
+            )
           }
 
           "TFWS_OPENSSL=$openssl" |
