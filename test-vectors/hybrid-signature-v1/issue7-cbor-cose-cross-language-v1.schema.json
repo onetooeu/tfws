@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tfws.example/schema/issue7-cbor-cose-cross-language-v1.schema.json",
+  "title": "TFWS issue #7 cross-language CBOR/COSE conformance corpus",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["corpus_version", "fixture_crypto", "negative", "positive", "profile", "provenance"],
+  "properties": {
+    "corpus_version": {"const": "1"},
+    "profile": {"const": "A2-COSE-04"},
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["base_commit", "fixture_warning", "generator", "network_input", "random_input", "source_manifest", "timestamp_input"],
+      "properties": {
+        "source_manifest": {"const": "test-vectors/manifest.valid.json"},
+        "generator": {"const": "scripts/generate_issue7_cbor_cose_vectors.py"},
+        "base_commit": {"pattern": "^[0-9a-f]{40}$"},
+        "network_input": {"const": false},
+        "random_input": {"const": false},
+        "timestamp_input": {"const": false},
+        "fixture_warning": {"type": "string", "minLength": 1}
+      }
+    },
+    "fixture_crypto": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ed25519_prefix_hex", "ed25519_signature_bytes", "ml_dsa_65_prefix_hex", "ml_dsa_65_signature_bytes", "scheme"],
+      "properties": {
+        "scheme": {"const": "sha256-prefix-repeat-v1"},
+        "ed25519_prefix_hex": {"const": "13"},
+        "ml_dsa_65_prefix_hex": {"const": "31"},
+        "ed25519_signature_bytes": {"const": 64},
+        "ml_dsa_65_signature_bytes": {"const": 3309}
+      }
+    },
+    "positive": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cose_hex", "cose_sha256", "expected_category", "id", "manifest", "manifest_cbor_hex", "manifest_cbor_sha256"],
+      "properties": {
+        "id": {"const": "positive-hybrid-envelope-v1"},
+        "manifest": {"type": "object"},
+        "manifest_cbor_hex": {"type": "string", "pattern": "^[0-9a-f]+$"},
+        "manifest_cbor_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "cose_hex": {"type": "string", "pattern": "^[0-9a-f]+$"},
+        "cose_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "expected_category": {"const": "valid"}
+      }
+    },
+    "negative": {
+      "type": "array",
+      "minItems": 18,
+      "maxItems": 18,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["bytes_hex", "class", "expected_category", "id", "input_type", "sha256"],
+        "properties": {
+          "id": {"type": "string", "minLength": 1},
+          "class": {"type": "string", "minLength": 1},
+          "input_type": {"enum": ["manifest_cbor", "cose"]},
+          "bytes_hex": {"type": "string", "pattern": "^[0-9a-f]*$"},
+          "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "expected_category": {"type": "string", "minLength": 1}
+        }
+      }
+    }
+  }
+}
