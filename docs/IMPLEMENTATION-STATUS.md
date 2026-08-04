@@ -21,6 +21,10 @@
 - TypeScript shape and presentation helpers,
 - Rust workspace locally formatted, checked, tested, linted and built on Windows with Rust 1.86.0 and locked dependencies,
 - `tfws-wasm` locally built for `wasm32-unknown-unknown`,
+- explicit `tfws-wasm` deterministic-CBOR validation through the shared core
+  decoder, with stable bounded error categories and fail-closed JSON mismatch,
+- CI-integrated Python, Rust, vector-regeneration, repository-validator and
+  WASM codec-path gates while preserving the four governed check names,
 - ONETOO platform event-store, tenant, authentication, idempotency, search and agent-guard foundations,
 - accessible static ONETOO and HGPeDU alpha sites with fail-closed production gates.
 
@@ -41,4 +45,9 @@
 Unsupported capabilities must not be advertised. `3.0.0-alpha` is an
 engineering foundation and migration package, not a completed TFWS 3.0 release.
 The conformance-fixture verifier does not claim production cryptographic
-completeness. Selective-disclosure work remains outside this Issue 8 scope.
+completeness. Selective-disclosure work remains outside this CBOR/COSE scope.
+Issue #9 adds CI and documentation integration plus the explicit WASM codec
+path: the 19-case corpus remains one positive and 18 negative structural
+fixtures, and the WASM export validates deterministic manifest CBOR but does
+not verify COSE signatures. This remains engineering-alpha work. It is not
+production-complete or certified, and it does not constitute a release claim.

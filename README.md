@@ -20,6 +20,23 @@ It is source-only and remains subject to the release gates above.
 make validate
 ```
 
+`make validate` is the complete Issue #9 local gate. Its explicit components
+are `make test-python-cbor-cose`, `make test-vectors`,
+`make test-rust-locked`, `make test-wasm-codec`, and
+`make validate-repository`. Cargo commands use the locked, offline dependency
+graph; vector regeneration occurs in a temporary directory and is compared
+byte-for-byte with the committed corpus. The Make targets require a POSIX
+shell (`mktemp` and `cmp`); on Windows, run them in Git Bash or an equivalent
+environment after provisioning the Rust WASM target.
+
+CI keeps the governance check names `python-node`, `rust (ubuntu-latest)`,
+`rust (windows-latest)`, and `rust (macos-latest)`. The Python job runs the
+CBOR/COSE reference and 19-case Issue #7 corpus (one positive plus 18 negative
+vectors), deterministic regeneration, Node tests, and the repository
+validator. Every Rust platform runs the deterministic CBOR codec, COSE hybrid
+envelope, OpenSSL provider, Issue #7 vector, explicit CLI-format, workspace,
+formatting, Clippy, and WASM codec-path gates.
+
 The Python/OpenSSL reference requires OpenSSL 3.5 or newer with Ed25519 and
 ML-DSA-65 support. The Rust workspace is the intended long-term source of truth;
 its build remains a mandatory release gate.
@@ -39,6 +56,13 @@ machine-readable error code and message. Current COSE verification in this CLI
 is limited to the committed deterministic conformance fixtures. Those fixtures
 exercise structure, hybrid-profile, key-binding and rejection behavior; they
 are not production cryptographic known-answer vectors or a production verifier.
+
+The WASM interface likewise separates JSON from the explicit
+`validate_manifest_cbor` export. That export calls the shared deterministic
+core decoder, fails closed, and returns bounded JSON error categories; it does
+not auto-detect COSE, perform hybrid signature verification, or turn malformed
+CBOR into JSON. This remains engineering-alpha interoperability work, not a
+production-complete, certified, or release-ready verifier.
 
 ## Repository map
 
