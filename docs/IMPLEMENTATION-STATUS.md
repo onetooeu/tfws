@@ -6,6 +6,10 @@
 - strict manifest and signature-bundle validation,
 - signed public-key descriptors with exact public-key SHA-256 binding,
 - real Ed25519 + ML-DSA-65 key generation, signing and verification through OpenSSL 3.5,
+- deterministic manifest CBOR decoding and COSE_Sign envelope validation against
+  the committed positive and 18 negative cross-language conformance vectors,
+- explicit `json`, `cbor` or `cose` CLI input selection with fail-closed format
+  mismatch handling and stable human/machine-readable errors,
 - negative tests for payload modification, missing signatures, key replacement and URI mismatch,
 - downgrade and unknown-mandatory-capability rejection,
 - JSON Schema 2020-12 positive and negative vectors,
@@ -23,8 +27,8 @@
 ## Specified or scaffolded, not production-complete
 
 - independent multi-platform verification and security audit of the Rust/WASM verifier,
-- CBOR/COSE envelope profile specified; codec, signing, verification and
-  conformance vectors not implemented,
+- production cryptographic COSE signing and verification beyond the committed
+  structural deterministic conformance fixtures,
 - ML-KEM secure transport implementation,
 - distributed transparency log, consistency proofs and witness gossip service,
 - selective-disclosure credential integrations,
@@ -36,3 +40,5 @@
 
 Unsupported capabilities must not be advertised. `3.0.0-alpha` is an
 engineering foundation and migration package, not a completed TFWS 3.0 release.
+The conformance-fixture verifier does not claim production cryptographic
+completeness. Selective-disclosure work remains outside this Issue 8 scope.

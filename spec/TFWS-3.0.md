@@ -29,6 +29,11 @@ The compact CBOR/COSE representation is specified in
 [`CBOR-COSE.md`](CBOR-COSE.md). It must represent the same abstract manifest,
 signed payload and security policy as the canonical JSON path.
 
+A verifier interface must require the caller to select `json`, `cbor` or
+`cose` explicitly. It must not infer the representation from bytes, a filename
+or a failed decoder, and it must not retry a rejected input using a weaker or
+different representation. A representation mismatch fails closed.
+
 ## Canonical payload
 
 The JSON core profile uses RFC 8785 JCS with the additional TFWS restriction
@@ -87,6 +92,20 @@ must fail closed.
 Results are multi-dimensional. No single number represents absolute trust.
 Content truthfulness is explicitly reported as `not_assessed` unless a separate,
 scoped evidence system evaluates a specific claim.
+
+Interoperability errors have deterministic categories suitable for both human
+and machine-readable output. Categories distinguish argument and input-format
+errors, malformed or non-deterministic CBOR, unsupported CBOR types and resource
+limits, manifest-policy failures, COSE structure/header/content-type/type
+failures, hybrid algorithm or key-identifier failures, public-key binding
+mismatch and invalid signatures. An implementation may provide more detail only
+when it does not disclose secrets or change the fail-closed category.
+
+The repository's committed Issue 7 signatures are structural deterministic
+conformance fixtures. They test common JSON/CBOR/COSE interpretation, the fixed
+Ed25519 plus ML-DSA-65 profile, descriptor binding and negative rejection. They
+are not production cryptographic known-answer vectors and successful fixture
+verification must not be represented as production cryptographic verification.
 
 ## Normative foundations used by this draft
 
