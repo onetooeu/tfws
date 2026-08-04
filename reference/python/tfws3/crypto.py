@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import hmac
 import os
 import shutil
 import subprocess
@@ -9,11 +10,21 @@ import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
-from .canonical import canonicalize
-from .errors import CryptoError, ValidationError
+from .canonical import _CborTag, _decode_cbor_document, canonicalize, decode_manifest_cbor
+from .errors import CryptoError, InteroperabilityError, ValidationError
 from .models import BASELINE, parse_rfc3339, validate_manifest
 
 OPENSSL_MIN = (3, 5, 0)
+COSE_CONTENT_TYPE = "application/tfws+cbor"
+COSE_TYPE = 'application/cose; cose-type="cose-sign"'
+ED25519_COSE_ALGORITHM = -19
+ML_DSA_65_COSE_ALGORITHM = -49
+ED25519_SIGNATURE_BYTES = 64
+ML_DSA_65_SIGNATURE_BYTES = 3309
+CONFORMANCE_KEY_SHA256 = {
+    "ed25519": "7fe64728f1a7bb8c6c103f49c0e2ed0e999678229256c7aab813634cc6c85ba9",
+    "ml-dsa-65": "85acf51bf7260bc7009f1b3d6b8a4f6d0442bf21ea91a86fe7cbb282edb317cb",
+}
 
 
 def _run(args: list[str], *, input_bytes: bytes | None = None) -> bytes:
@@ -340,3 +351,145 @@ def verify_bundle(manifest: dict, bundle: dict, public_key_dir: Path) -> dict:
         "payload_sha512": digest,
         "signatures": results,
     }
+
+
+def _cbor_head(major: int, value: int) -> bytes:
+    if value < 24:
+        return bytes([(major << 5) | value])
+    if value < 256:
+        return bytes([(major << 5) | 24, value])
+    if value < 65_536:
+        return bytes([(major << 5) | 25]) + value.to_bytes(2, "big")
+    if value < 4_294_967_296:
+        return bytes([(major << 5) | 26]) + value.to_bytes(4, "big")
+    return bytes([(major << 5) | 27]) + value.to_bytes(8, "big")
+
+
+def _encode_cose_sig_value(value: object) -> bytes:
+    if isinstance(value, bytes):
+        return _cbor_head(2, len(value)) + value
+    if isinstance(value, str):
+        encoded = value.encode("utf-8")
+        return _cbor_head(3, len(encoded)) + encoded
+    if isinstance(value, list):
+        return _cbor_head(4, len(value)) + b"".join(
+            _encode_cose_sig_value(item) for item in value
+        )
+    raise TypeError(f"unsupported Sig_structure value: {type(value).__name__}")
+
+
+def _cose_error(code: str, message: str) -> InteroperabilityError:
+    return InteroperabilityError(message, code=code)
+
+
+def _decode_protected(value: object, label: str) -> dict:
+    if not isinstance(value, bytes):
+        raise _cose_error("invalid_cose_structure", f"{label} must be bytes")
+    decoded = _decode_cbor_document(
+        value, allow_bytes=True, allow_null=True
+    )
+    if not isinstance(decoded, dict):
+        raise _cose_error("invalid_cose_structure", f"{label} must encode a map")
+    return decoded
+
+
+def _fixture_signature(prefix: int, message: bytes, length: int) -> bytes:
+    digest = hashlib.sha256(bytes([prefix]) + message).digest()
+    return (digest * ((length + len(digest) - 1) // len(digest)))[:length]
+
+
+def verify_manifest_cose_conformance(envelope: bytes) -> dict:
+    """Verify committed structural conformance fixtures.
+
+    The Issue #7 corpus explicitly uses deterministic structural signatures,
+    not production cryptographic known-answer signatures. This entry point is
+    therefore intentionally named and scoped as conformance-only.
+    """
+    document = _decode_cbor_document(
+        envelope, allow_bytes=True, allow_tags=True, allow_null=True
+    )
+    if not isinstance(document, _CborTag) or document.tag != 98:
+        raise _cose_error(
+            "invalid_cose_structure", "COSE_Sign tag 98 is required"
+        )
+    outer = document.value
+    if not isinstance(outer, list) or len(outer) != 4:
+        raise _cose_error(
+            "invalid_cose_structure", "COSE_Sign must contain four elements"
+        )
+    body_protected, body_unprotected, payload, signatures = outer
+    if not isinstance(body_unprotected, dict) or body_unprotected:
+        raise _cose_error("unsupported_header", "unprotected body headers are forbidden")
+    if payload is None or not isinstance(payload, bytes):
+        raise _cose_error("invalid_cose_structure", "embedded payload is required")
+    body_headers = _decode_protected(body_protected, "body protected header")
+    if set(body_headers) - {3, 16}:
+        raise _cose_error("unsupported_header", "unsupported body protected header")
+    if body_headers.get(3) != COSE_CONTENT_TYPE:
+        raise _cose_error("invalid_content_type", "invalid COSE content type")
+    if body_headers.get(16) != COSE_TYPE:
+        raise _cose_error("invalid_type", "invalid COSE type")
+    if not isinstance(signatures, list) or len(signatures) != 2:
+        raise _cose_error(
+            "invalid_cose_structure", "hybrid COSE requires exactly two signatures"
+        )
+
+    expected = (
+        (ED25519_COSE_ALGORITHM, "ed25519", 0x13, ED25519_SIGNATURE_BYTES),
+        (ML_DSA_65_COSE_ALGORITHM, "ml-dsa-65", 0x31, ML_DSA_65_SIGNATURE_BYTES),
+    )
+    parsed_signatures = []
+    for index, (entry, expected_profile) in enumerate(zip(signatures, expected)):
+        if not isinstance(entry, list) or len(entry) != 3:
+            raise _cose_error(
+                "invalid_cose_structure", f"signature {index} has invalid shape"
+            )
+        protected, unprotected, signature = entry
+        if not isinstance(unprotected, dict) or unprotected:
+            raise _cose_error(
+                "unsupported_header", "unprotected signature headers are forbidden"
+            )
+        headers = _decode_protected(protected, f"signature {index} protected header")
+        if set(headers) - {1, 4}:
+            raise _cose_error(
+                "unsupported_header", "unsupported signature protected header"
+            )
+        algorithm, algorithm_name, prefix, signature_length = expected_profile
+        if headers.get(1) != algorithm:
+            raise _cose_error("invalid_algorithm", "invalid hybrid algorithm order")
+        if headers.get(4) != b"release-1":
+            raise _cose_error("invalid_kid", "invalid signature key identifier")
+        if not isinstance(signature, bytes) or len(signature) != signature_length:
+            raise _cose_error("signature_invalid", "invalid signature length")
+        parsed_signatures.append(
+            (
+                protected,
+                signature,
+                algorithm_name,
+                headers[4],
+                prefix,
+                signature_length,
+            )
+        )
+
+    manifest = decode_manifest_cbor(payload)
+    descriptors = {entry["algorithm"]: entry for entry in manifest["keys"]}
+    for _, _, algorithm_name, kid, _, _ in parsed_signatures:
+        descriptor = descriptors.get(algorithm_name)
+        if descriptor is None:
+            raise _cose_error("key_binding_mismatch", "missing key descriptor")
+        if (
+            descriptor["key_id"].encode("utf-8") != kid
+            or descriptor["public_key_sha256"]
+            != CONFORMANCE_KEY_SHA256[algorithm_name]
+        ):
+            raise _cose_error("key_binding_mismatch", "public key binding mismatch")
+
+    for protected, signature, _, _, prefix, signature_length in parsed_signatures:
+        message = _encode_cose_sig_value(
+            ["Signature", body_protected, protected, b"", payload]
+        )
+        expected_signature = _fixture_signature(prefix, message, signature_length)
+        if not hmac.compare_digest(signature, expected_signature):
+            raise _cose_error("signature_invalid", "conformance signature is invalid")
+    return manifest

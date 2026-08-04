@@ -24,6 +24,22 @@ The Python/OpenSSL reference requires OpenSSL 3.5 or newer with Ed25519 and
 ML-DSA-65 support. The Rust workspace is the intended long-term source of truth;
 its build remains a mandatory release gate.
 
+The Rust CLI requires an explicit representation and never auto-detects or
+downgrades the input format:
+
+```bash
+cargo run --locked --offline -p tfws-cli -- validate --input-format json manifest.json
+cargo run --locked --offline -p tfws-cli -- validate --input-format cbor manifest.cbor
+cargo run --locked --offline -p tfws-cli -- validate --input-format cose manifest.cose
+cargo run --locked --offline -p tfws-cli -- validate --input-format cose --output-format json manifest.cose
+```
+
+Human-readable errors are the default; `--output-format json` returns a stable
+machine-readable error code and message. Current COSE verification in this CLI
+is limited to the committed deterministic conformance fixtures. Those fixtures
+exercise structure, hybrid-profile, key-binding and rejection behavior; they
+are not production cryptographic known-answer vectors or a production verifier.
+
 ## Repository map
 
 - `spec/` — normative engineering drafts

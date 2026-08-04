@@ -1,18 +1,41 @@
 import copy
+import json
 import tempfile
 import unittest
 from pathlib import Path
 
-from tfws3.canonical import canonicalize
+from tfws3.canonical import canonicalize, decode_manifest_cbor
 from tfws3.cli import new_manifest
-from tfws3.crypto import bind_public_keys, generate_keyset, sign_manifest, verify_bundle
-from tfws3.errors import CryptoError, PolicyError, ValidationError
+from tfws3.crypto import (
+    bind_public_keys,
+    generate_keyset,
+    sign_manifest,
+    verify_bundle,
+    verify_manifest_cose_conformance,
+)
+from tfws3.errors import (
+    CryptoError,
+    InteroperabilityError,
+    PolicyError,
+    ValidationError,
+)
 from tfws3.eventlog import append_event, merkle_root, read_events, verify_chain
 from tfws3.models import validate_manifest
 from tfws3.netpolicy import validate_public_https_url
 
 
 class CoreTests(unittest.TestCase):
+    @staticmethod
+    def issue7_corpus():
+        root = Path(__file__).resolve().parents[3]
+        path = (
+            root
+            / "test-vectors"
+            / "hybrid-signature-v1"
+            / "issue7-cbor-cose-cross-language-v1.json"
+        )
+        return json.loads(path.read_text(encoding="utf-8"))
+
     def test_canonical_deterministic(self):
         self.assertEqual(
             canonicalize({"b": 1, "a": "ž"}),
@@ -117,6 +140,49 @@ class CoreTests(unittest.TestCase):
         ):
             with self.subTest(url=url), self.assertRaises(PolicyError):
                 validate_public_https_url(url)
+
+    def test_issue8_positive_cbor_and_cose_interoperability(self):
+        corpus = self.issue7_corpus()
+        positive = corpus["positive"]
+        decoded = decode_manifest_cbor(
+            bytes.fromhex(positive["manifest_cbor_hex"])
+        )
+        self.assertEqual(decoded, positive["manifest"])
+        verified = verify_manifest_cose_conformance(
+            bytes.fromhex(positive["cose_hex"])
+        )
+        self.assertEqual(verified, positive["manifest"])
+
+    def test_issue8_all_negative_vectors_match_rust_categories(self):
+        corpus = self.issue7_corpus()
+        self.assertEqual(len(corpus["negative"]), 18)
+        for case in corpus["negative"]:
+            with self.subTest(vector=case["id"]):
+                operation = (
+                    decode_manifest_cbor
+                    if case["input_type"] == "manifest_cbor"
+                    else verify_manifest_cose_conformance
+                )
+                with self.assertRaises(InteroperabilityError) as captured:
+                    operation(bytes.fromhex(case["bytes_hex"]))
+                self.assertEqual(
+                    captured.exception.code,
+                    case["expected_category"],
+                )
+
+    def test_issue8_errors_are_machine_and_human_readable(self):
+        error = InteroperabilityError(
+            "deterministic operator message",
+            code="invalid_cose_structure",
+        )
+        self.assertEqual(str(error), "deterministic operator message")
+        self.assertEqual(
+            error.as_dict(),
+            {
+                "code": "invalid_cose_structure",
+                "message": "deterministic operator message",
+            },
+        )
 
 
 if __name__ == "__main__":
