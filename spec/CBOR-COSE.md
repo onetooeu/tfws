@@ -285,11 +285,35 @@ Countersignatures, encryption, detached payloads, external AAD, embedded
 COSE_Key objects and selective disclosure are outside this engineering
 profile and MUST be rejected unless a later approved specification adds them.
 
+CI and local validation MUST treat malformed CBOR, non-preferred encodings,
+duplicate keys and non-canonical ordering as terminal. Explicit JSON, CBOR and
+COSE selection prevents format confusion: a failed selected decoder MUST NOT
+probe another format or downgrade to JSON. Signature or key-binding failures,
+including either missing or invalid Ed25519 or ML-DSA-65 component, remain
+terminal and MUST preserve the complete hybrid requirement.
+
+Decoders MUST apply the resource limits in section 10 before unbounded
+allocation, deeply nested traversal, or cryptographic verification. Public
+diagnostics SHOULD expose the stable categories in section 11 with bounded
+messages, but MUST NOT expose raw keys, signatures, secret intermediates,
+environment values or detailed parser state that would unnecessarily aid an
+attacker.
+
+The Issue #9 WASM boundary exercises deterministic manifest-CBOR decoding only.
+It does not infer formats or provide COSE signature verification; callers must
+select that export explicitly. The committed conformance corpus contains one
+positive structural fixture and 18 negative fixtures. Passing it is necessary
+engineering-alpha evidence, not certification or proof of production
+completeness.
+
 ## 14. Implementation status
 
-At the time of this draft, the repository contains the JSON manifest and
-signature-bundle path but no CBOR/COSE codec, implementation dependency or
-conformance vectors.
+The repository contains a deterministic Rust CBOR codec, a structural
+COSE_Sign hybrid envelope implementation, cross-language Python/Rust vectors,
+explicit JSON/CBOR/COSE CLI handling, and an explicit WASM manifest-CBOR export
+that reuses the core decoder. CI exercises these paths without changing the
+governed check names, and local Make targets reproduce the same gates with
+locked dependencies and external vector regeneration.
 
 This document defines the target profile for issues A2-COSE-02 through
 A2-COSE-06. Production completion remains blocked by `RELEASE-GATES.md`.
