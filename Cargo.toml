@@ -20,7 +20,7 @@ chrono = { version = "0.4", default-features = false, features = ["clock", "serd
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_jcs = "0.1"
-sha2 = "0.10"
+sha2 = "0.11"
 thiserror = "2"
 url = "2"
 wasm-bindgen = "0.2"
